@@ -1,0 +1,100 @@
+// 
+// AccelStepper header file received from 2012 Mike McCauley and can be installed on arduino
+// $Id: Random.pde,v 1.1 2011/01/05 01:51:01 mikem Exp mikem $
+
+// The following code was designed for the Bobba Puncher robot. It was designed to work with a stepper and servo motor. 
+// However, it is advisable to use stronger motors for grabbing the straw and puncturing a hole into the Bubble tea cup. Regardless,
+// the code is functionally complete and will successfully instruct the robot to create a hole.
+#include <AccelStepper.h>
+#include <Servo.h>
+AccelStepper stepper; // Defaults to AccelStepper::FULL4WIRE (4 pins) on 2, 3, 4, 5
+Servo servo;
+
+int servoAngle = 0;
+int state = 0;
+int inPin = 10;
+int outPin = 11;
+int reading = 0;
+
+int ledpinY = 13;
+int ledpinG = 12;
+int ledpinR = 8;
+
+void setup()
+{  
+  stepper.setMaxSpeed(300);
+  stepper.setAcceleration(100);
+  servo.attach(9);
+
+  pinMode(inPin, INPUT);
+  pinMode(outPin, OUTPUT);
+  pinMode(ledpinY, OUTPUT);
+  pinMode(ledpinR, OUTPUT);
+  pinMode(ledpinG, OUTPUT);
+}
+
+void loop()
+{
+    digitalWrite(outPin, HIGH);
+    reading = digitalRead(inPin);
+
+    switch(state){
+      
+      case 0: //RESET everything
+        digitalWrite(ledpinY, LOW);
+        digitalWrite(ledpinG, LOW);
+        digitalWrite(ledpinR, LOW);
+        stepper.moveTo(0);
+        servo.write(0);
+        if (servo.read() == 0 && stepper.distanceToGo() == 0){state = 1;}
+        stepper.run();
+        break;
+      
+      case 1: //CHECK if cup is in robot
+        if (reading == HIGH){state = 2;}
+        digitalWrite(ledpinY, LOW);
+        digitalWrite(ledpinG, LOW);
+        digitalWrite(ledpinR, HIGH);
+        break;
+      
+      case 2: //CLAMP the straw smoothly
+        digitalWrite(ledpinY, LOW);
+        digitalWrite(ledpinG, HIGH);
+        digitalWrite(ledpinR, LOW);
+        for(servoAngle = 180; servoAngle > 0; servoAngle--){
+          servo.write(servoAngle);
+          delay(5);
+        }
+        if (servoAngle == 0){state = 3;}
+        break;
+        
+      case 3: //PUNCTURE the cap with the straw
+        stepper.moveTo(-40);
+        if (stepper.distanceToGo() == 0){state = 4;}
+        stepper.run();
+        digitalWrite(ledpinY, LOW);
+        digitalWrite(ledpinG, HIGH);
+        digitalWrite(ledpinR, HIGH);
+        break;
+      
+      case 4: //UNCLAMP the straw
+        digitalWrite(ledpinY, HIGH);
+        digitalWrite(ledpinG, LOW);
+        digitalWrite(ledpinR, LOW);
+        for(servoAngle = 0; servoAngle < 180; servoAngle++){
+          servo.write(servoAngle);
+          delay(5);
+        }
+        if (servoAngle == 180){state = 5;}
+        break;
+
+      case 5: //Move stepper to original position
+          stepper.moveTo(0);
+          stepper.run();
+          digitalWrite(ledpinY, HIGH);
+          digitalWrite(ledpinG, LOW);
+          digitalWrite(ledpinR, HIGH);
+          if (stepper.distanceToGo() == 0){state = 0;}
+          break;
+    }
+}
